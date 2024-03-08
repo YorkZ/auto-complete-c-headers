@@ -27,7 +27,7 @@
 ;;; Code:
 
 ;; For `remove-duplicates'
-(require 'cl)
+(require 'cl-lib)
 (require 'auto-complete)
 (require 'tramp)
 
@@ -71,10 +71,10 @@ please consider to make your own function and set it to
 (defun achead:get-include-directories-from-options (cmd-line-options)
   "Extract include directory names from command line options
   like (\"-I~/.local/include/\" \"-I~/src/include/\")."
-  (loop for option in cmd-line-options
-        when (let (case-fold-search)
-               (string-match "^-I\\(.*\\)" option))
-        collect (match-string 1 option)))
+  (cl-loop for option in cmd-line-options
+           when (let (case-fold-search)
+                  (string-match "^-I\\(.*\\)" option))
+           collect (match-string 1 option)))
 
 (defvar achead:include-cache nil
   "Cache file list of include directories.")
@@ -89,9 +89,9 @@ please consider to make your own function and set it to
 
 (defun achead:path-should-be-displayed (path)
   "Decide `path' should be displayed as a candidate."
-  (loop for include-pattern in achead:include-patterns
-        when (string-match-p include-pattern path)
-        return t))
+  (cl-loop for include-pattern in achead:include-patterns
+           when (string-match-p include-pattern path)
+           return t))
 
 (defun achead:get-include-file-candidates (&optional basedir)
   "Get all header files under `basedir' as if -I option is
@@ -99,22 +99,22 @@ enabled for directories returned by
 `achead:get-include-directories-function'."
   (let ((remote (and achead:inspect-remote-directories
                      (file-remote-p default-directory))))
-    (loop with dir-suffix = (or basedir "")
-          with include-base-dirs = (delete-duplicates (funcall achead:get-include-directories-function)
-                                                      :test 'string=)
-          for include-base in include-base-dirs
-          append (loop with dir = (file-name-directory (concat (file-name-as-directory include-base)
-                                                               dir-suffix))
-                       with files = (achead:file-list-for-directory (concat remote dir))
-                       for file in files
-                       ;; FIXME: Are there a good way to bind variable inside a loop (`with' cannot capture `file')?
-                       ;; (concat dir file) should be bounded to a variable like `real-path'
-                       when (or (file-directory-p (concat dir file))
-                                (and achead:include-patterns (achead:path-should-be-displayed (concat dir file))))
-                       collect (cons (if (file-directory-p (concat dir file))
-                                         (concat dir-suffix (concat file "/"))
-                                       (concat dir-suffix file))
-                                     (concat dir file)))))
+    (cl-loop with dir-suffix = (or basedir "")
+             with include-base-dirs = (cl-delete-duplicates (funcall achead:get-include-directories-function)
+                                                            :test 'string=)
+             for include-base in include-base-dirs
+             append (cl-loop with dir = (file-name-directory (concat (file-name-as-directory include-base)
+                                                                     dir-suffix))
+                             with files = (achead:file-list-for-directory (concat remote dir))
+                             for file in files
+                             ;; FIXME: Are there a good way to bind variable inside a loop (`with' cannot capture `file')?
+                             ;; (concat dir file) should be bounded to a variable like `real-path'
+                             when (or (file-directory-p (concat dir file))
+                                      (and achead:include-patterns (achead:path-should-be-displayed (concat dir file))))
+                             collect (cons (if (file-directory-p (concat dir file))
+                                               (concat dir-suffix (concat file "/"))
+                                             (concat dir-suffix file))
+                                           (concat dir file)))))
   )
 
 (defvar achead:ac-latest-results-alist nil
@@ -138,8 +138,8 @@ just returns the path and content of the header file which
   "Candidate-collecting function for `auto-complete'."
   (ignore-errors
     (setq achead:ac-latest-results-alist (achead:get-include-file-candidates (file-name-directory ac-prefix)))
-    (loop for (candidate . path) in achead:ac-latest-results-alist
-          collect candidate)))
+    (cl-loop for (candidate . path) in achead:ac-latest-results-alist
+             collect candidate)))
 
 (ac-define-source c-headers
   `((init . (setq achead:include-cache nil))
